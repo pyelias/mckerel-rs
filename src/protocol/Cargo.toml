@@ -1,0 +1,12 @@
+[package]
+name = "mckerel-protocol"
+version = "0.1.0"
+authors = ["kijetesantakalu <ebomberger@gmail.com>"]
+edition = "2018"
+
+
+[dependencies]
+tokio = { version = "1.12", features = ["full"] }
+num = "0.3"
+byteorder = "1"
+mckerel-protocol-macros = { path = "src/mckerel-protocol-macros" }
