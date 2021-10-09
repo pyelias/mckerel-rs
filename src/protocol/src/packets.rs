@@ -56,14 +56,13 @@ pub mod serverbound {
         #[derive(Packet)]
         pub struct Request;
         
-        // todo tuple packets
-        //#[derive(Packet)]
+        #[derive(Packet)]
         pub struct Ping(u64);
 
-        /*packets_impl!(Packet {
+        packets_impl!(Packet {
             Request = 0x00,
             Ping = 0x01
-        });*/
+        });
     }
 }
 
@@ -77,11 +76,12 @@ pub mod clientbound {
             pub resp: String
         }
 
+        #[derive(Packet)]
         pub struct Pong(u64);
 
-        pub enum Packet {
-            Response(Response),
-            Pong(Pong),
-        }
+        packets_impl!(Packet {
+            Response = 0x00,
+            Pong = 0x01
+        });
     }
 }

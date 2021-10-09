@@ -78,9 +78,28 @@ impl FieldNamed {
     }
 }
 
+pub struct FieldUnnamed {
+    pub ty: Type,
+    pub attrs: FieldAttrs,
+}
+
+impl FieldUnnamed {
+    fn new(field: syn::Field) -> SynResult<Self> {
+        let mut attrs = FieldAttrs::new();
+        for attrs_line in field.attrs {
+            attrs.add_meta(attrs_line.parse_meta()?)?;
+        }
+
+        Ok(Self {
+            ty: field.ty,
+            attrs
+        })
+    }
+}
+
 pub enum DataStruct {
     Named(Vec<FieldNamed>),
-    // Unnamed(Vec<FieldNamed>),
+    Unnamed(Vec<FieldUnnamed>),
     Unit,
 }
 
@@ -88,7 +107,7 @@ impl DataStruct {
     fn new(data_struct: syn::DataStruct) -> SynResult<Self> {
         match data_struct.fields {
             syn::Fields::Named(fields) => Ok(Self::Named(fields.named.into_iter().map(FieldNamed::new).collect::<SynResult<_>>()?)),
-            syn::Fields::Unnamed(_) => todo!(),
+            syn::Fields::Unnamed(fields) => Ok(Self::Unnamed(fields.unnamed.into_iter().map(FieldUnnamed::new).collect::<SynResult<_>>()?)),
             syn::Fields::Unit => Ok(Self::Unit)
         }
     }

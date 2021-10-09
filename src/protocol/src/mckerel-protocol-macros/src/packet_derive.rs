@@ -32,6 +32,33 @@ fn named_struct_derive(struct_name: syn::Ident, fields: Vec<parsing::FieldNamed>
     }).into()
 }
 
+fn unnamed_struct_derive(struct_name: syn::Ident, fields: Vec<parsing::FieldUnnamed>) -> proc_macro::TokenStream {
+    let field_withs = fields.iter().map(|field| {
+        match &field.attrs.with {
+            Some(ty) => {
+                let ty = format_ident!("{}", ty);
+                quote! { #ty }
+            },
+            None => {
+                let ty = &field.ty;
+                quote! { #ty }
+            },
+        }
+    });
+
+    (quote! {
+        impl<'de> crate::de::Deserialize<'de> for #struct_name {
+            type Value = Self;
+
+            fn deserialize(input: &mut crate::de::ByteReader<'de>) -> crate::de::Result<Self> {
+                Ok(Self(
+                    #(<#field_withs as crate::de::Deserialize<'de>>::deserialize(input)?),*
+                ))
+            }
+        }
+    }).into()
+}
+
 fn unit_struct_derive(struct_name: syn::Ident) -> proc_macro::TokenStream {
     (quote! {
         impl crate::de::Deserialize<'_> for #struct_name {
@@ -54,7 +81,7 @@ pub fn packet_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
     let struct_name = input.ident;
     match input.data {
         parsing::DataStruct::Named(fields) => named_struct_derive(struct_name, fields),
-        // todo tuples
+        parsing::DataStruct::Unnamed(fields) => unnamed_struct_derive(struct_name, fields),
         parsing::DataStruct::Unit => unit_struct_derive(struct_name),
     }
 }
