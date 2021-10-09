@@ -4,6 +4,7 @@ use crate::varnum::{VarNumReader, VarInt};
 #[derive(Debug)]
 pub enum Error {
     Eof,
+    BadPacketId,
     BadEnumTag,
     BadVarNum,
     BadUtf8,
@@ -31,13 +32,36 @@ impl<'a> ByteReader<'a> {
     }
 
     pub fn read_bytes(&mut self, len: usize) -> Result<&'a [u8]> {
-        if len > self.input.len() {
+        if len > self.remaining_len() {
             return Err(Error::Eof);
         }
 
         let (res, input) = self.input.split_at(len);
         self.input = input;
         Ok(res)
+    }
+
+    pub fn remaining_len(&self) -> usize {
+        self.input.len()
+    }
+
+    pub fn done(&self) -> bool {
+        self.remaining_len() == 0
+    }
+}
+
+impl std::io::Read for ByteReader<'_> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        if self.done() {
+            // returning a length of 0 means the reader is done
+            // this would happen anyways, but it's best to be explicit
+            // (probably maybe it gets optimized away)
+            return Ok(0);
+        }
+
+        let len = std::cmp::min(buf.len(), self.remaining_len());
+        buf.copy_from_slice(self.read_bytes(len).unwrap()); // can't error, prev. line ensures it's long enough
+        Ok(len)
     }
 }
 
@@ -47,23 +71,6 @@ pub trait Deserialize<'de> {
     fn deserialize(input: &mut ByteReader<'de>) -> Result<Self::Value>;
 }
 
-impl<T: num::PrimInt> Deserialize<'_> for VarNumReader<T> {
-    type Value = T;
-
-    fn deserialize(input: &mut ByteReader<'_>) -> Result<Self::Value> {
-        let mut reader = Self::new();
-        let res = loop {
-            match reader {
-                Self::Done(res) => break res,
-                Self::NotDone(state) => {
-                    let byte = input.read_byte()?;
-                    reader = state.read_byte(byte);
-                }
-            }
-        };
-        res.map_err(|_| Error::BadVarNum)
-    }
-}
 macro_rules! impl_deserialize_int {
     ($t: ty, $size: literal) => {
         impl Deserialize<'_> for $t {
@@ -88,6 +95,24 @@ impl_deserialize_int!(u32, 4);
 impl_deserialize_int!(i32, 4);
 impl_deserialize_int!(u64, 6);
 impl_deserialize_int!(i64, 6);
+
+impl<T: num::PrimInt> Deserialize<'_> for VarNumReader<T> {
+    type Value = T;
+
+    fn deserialize(input: &mut ByteReader<'_>) -> Result<Self::Value> {
+        let mut reader = Self::new();
+        let res = loop {
+            match reader {
+                Self::Done(res) => break res,
+                Self::NotDone(state) => {
+                    let byte = input.read_byte()?;
+                    reader = state.read_byte(byte);
+                }
+            }
+        };
+        res.map(|r| r.val).map_err(|_| Error::BadVarNum)
+    }
+}
 
 impl<'de> Deserialize<'de> for &'de str {
     type Value = &'de str;

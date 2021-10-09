@@ -4,7 +4,7 @@ use tokio::io::{self, AsyncReadExt, AsyncWriteExt, BufReader};
 use crate::varnum::VarInt;
 
 pub struct Packet {
-    pub id: u8,
+    // pub id: u8,
     pub content: Box<[u8]>,
 }
 
@@ -27,33 +27,29 @@ impl Connection {
         }
     }
 
-    async fn read_legacy_packet(&mut self) -> io::Result<Packet> {
-        Ok(Packet { id: 0xfe, content: vec![].into_boxed_slice() })
+    async fn read_legacy_ping(&mut self) -> io::Result<Packet> {
+        let mut content = vec![0xfe];
+        self.read.read_to_end(&mut content).await?;
+        let content = content.into_boxed_slice();
+        Ok(Packet { content })
     }
 
     pub async fn read_packet(&mut self) -> io::Result<Packet> {
         let mut packet_length_reader = VarInt::new();
         if self.expect_legacy_ping {
             let first_byte = self.read.read_u8().await?;
-            
             if first_byte == 0xfe {
-                return Ok(self.read_legacy_packet().await?);
+                return self.read_legacy_ping().await;
             }
-            packet_length_reader = packet_length_reader.try_read_byte(first_byte); // must be NotDone here, we just created it
+            packet_length_reader = packet_length_reader.try_read_byte(first_byte);
         }
         let packet_length = packet_length_reader.read_from_async(&mut self.read).await? as usize;
-        
-        let mut rest_of_packet = (&mut self.read).take(packet_length as u64);
-        let id_reader = VarInt::new();
-        let id = id_reader.read_from_async(&mut rest_of_packet).await? as u8;
 
-        // TODO: this part allocates too much in content, then into_boxed_slice drops it
-        // keeping track of the length of id_reader could fix this
-        let mut content = vec![];
-        rest_of_packet.read_to_end(&mut content).await?;
+        let mut content = vec![0; packet_length];
+        self.read.read_exact(&mut content).await?;
         let content = content.into_boxed_slice();
 
-        Ok(Packet { id, content })
+        Ok(Packet { content })
     }
 
     pub async fn close(&mut self) -> io::Result<()> {

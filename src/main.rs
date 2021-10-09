@@ -9,11 +9,16 @@ async fn handle_connection(conn: TcpStream) {
     conn.expect_legacy_ping = true;
 
     let packet = conn.read_packet().await.unwrap();
-    println!("{:x} {:?}", packet.id, packet.content);
+    println!("{:?}", packet.content);
 
     let mut content_deser = mckerel_protocol::de::ByteReader::new(&packet.content);
-    let packet_data = mckerel_protocol::packets::serverbound::handshake::packets::Handshake::deserialize(&mut content_deser).unwrap();
-    println!("{} {}", packet_data.version, packet_data.address);
+    let packet_data = mckerel_protocol::packets::serverbound::handshake::Packet::deserialize(&mut content_deser).unwrap();
+    if let mckerel_protocol::packets::serverbound::handshake::Packet::Handshake(packet_data) = packet_data {
+        println!("{} {}", packet_data.version, packet_data.address);
+    }
+    else {
+        println!("not the right kind of packet i guess");
+    }
 
     conn.close().await.unwrap();
 }

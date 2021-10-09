@@ -3,13 +3,13 @@ use tokio::io::{AsyncRead, AsyncReadExt};
 use byteorder::ReadBytesExt;
 
 pub struct ReaderState<T: num::PrimInt> {
-    val: T,
-    length: usize,
+    pub val: T,
+    pub length: usize,
 }
 
 pub enum VarNumReader<T: num::PrimInt> {
     NotDone(ReaderState<T>),
-    Done(Result<T, ()>)
+    Done(Result<ReaderState<T>, ()>)
 }
 
 impl<T: num::PrimInt> ReaderState<T> {
@@ -32,7 +32,7 @@ impl<T: num::PrimInt> ReaderState<T> {
         self.length += 1;
 
         if done {
-            VarNumReader::Done(Ok(self.val))
+            VarNumReader::Done(Ok(self))
         }
         else {
             VarNumReader::NotDone(self)
@@ -52,7 +52,7 @@ impl<T: num::PrimInt> VarNumReader<T> {
         }
     }
 
-    pub fn read_from<R: std::io::Read>(mut self, mut read: R) -> std::io::Result<T> {
+    pub fn read_from_get_state<R: std::io::Read>(mut self, mut read: R) -> std::io::Result<ReaderState<T>> {
         let res = loop {
             match self {
                 Self::Done(res) => {
@@ -66,7 +66,11 @@ impl<T: num::PrimInt> VarNumReader<T> {
         res.map_err(|_| std::io::Error::new(std::io::ErrorKind::InvalidData, "failed to read varint"))
     }
 
-    pub async fn read_from_async<R: AsyncRead + std::marker::Unpin>(mut self, mut read: R) -> std::io::Result<T> {
+    pub fn read_from<R: std::io::Read>(self, read: R) -> std::io::Result<T> {
+        Ok(self.read_from_get_state(read)?.val)
+    }
+
+    pub async fn read_from_async_get_state<R: AsyncRead + std::marker::Unpin>(mut self, mut read: R) -> std::io::Result<ReaderState<T>> {
         let res = loop {
             match self {
                 Self::Done(res) => break res,
@@ -76,6 +80,10 @@ impl<T: num::PrimInt> VarNumReader<T> {
             }
         };
         res.map_err(|_| std::io::Error::new(std::io::ErrorKind::InvalidData, "failed to read varint"))
+    }
+
+    pub async fn read_from_async<R: AsyncRead + std::marker::Unpin>(self, read: R) -> std::io::Result<T> {
+        Ok(self.read_from_async_get_state(read).await?.val)
     }
 }
 
