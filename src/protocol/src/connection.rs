@@ -10,7 +10,7 @@ use crate::varnum::VarInt;
 struct ConnReaderInner {
     // would make a type alias for this, but cant think of a good name
     // ReadReader?
-    read: BufReader<OwnedReadHalf>,
+    read: OwnedReadHalf,
     // encryption too, later
 }
 
@@ -18,18 +18,6 @@ impl AsyncRead for ConnReaderInner {
     fn poll_read(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut ReadBuf<'_>) -> Poll<io::Result<()>> {
         let read = Pin::new(&mut self.read);
         read.poll_read(cx, buf)
-    }
-}
-
-impl AsyncBufRead for ConnReaderInner {
-    fn poll_fill_buf(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<&[u8]>> {
-        let read = unsafe { self.map_unchecked_mut(|s| &mut s.read) };
-        read.poll_fill_buf(cx)
-    }
-
-    fn consume(self: Pin<&mut Self>, amt: usize) {
-        let read = unsafe { self.map_unchecked_mut(|s| &mut s.read) };
-        read.consume(amt);
     }
 }
 
@@ -144,7 +132,6 @@ pub struct Recv {
 
 impl Recv {
     pub fn new(read: OwnedReadHalf) -> Self {
-        let read = BufReader::new(read);
         Self {
             read: BufReader::new(ConnReaderInner { read } ),
             compression: None,
