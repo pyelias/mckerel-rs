@@ -9,5 +9,5 @@ pub mod ser;
 //pub mod states;
 mod varnum;
 
-pub use connection::Connection;
+pub use connection::{Recv, Send, PacketReader, PacketOrLegacyPing, make_conn};
 pub use packets::{serverbound, clientbound};
