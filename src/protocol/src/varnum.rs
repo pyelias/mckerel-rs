@@ -1,6 +1,5 @@
 use num;
 use tokio::io::{AsyncRead, AsyncReadExt};
-use byteorder::ReadBytesExt;
 
 pub struct ReaderState<T: num::PrimInt> {
     pub val: T,
@@ -59,7 +58,10 @@ impl<T: num::PrimInt> VarNumReader<T> {
                     break res
                 },
                 Self::NotDone(state) => {
-                    self = state.read_byte(read.read_u8()?);
+                    // no good builtin to do this, apparently
+                    let mut byte: u8 = 0;
+                    read.read_exact(std::slice::from_mut(&mut byte))?;
+                    self = state.read_byte(byte);
                 }
             }
         };
