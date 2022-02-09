@@ -10,4 +10,4 @@ pub mod ser;
 mod varnum;
 
 pub use connection::{Recv, Send, PacketReader, PacketOrLegacyPing, make_conn};
-pub use packets::{serverbound, clientbound};
+pub use packets::{serverbound, clientbound, Packet};

@@ -17,7 +17,7 @@ async fn handle_connection(conn: TcpStream) {
     println!("{:?}", packet);
 
     let mut content_deser = mckerel_protocol::de::ByteReader::new(&packet);
-    let packet_data = mckerel_protocol::packets::serverbound::handshake::Packet::deserialize(&mut content_deser).unwrap();
+    let packet_data = mckerel_protocol::packets::serverbound::handshake::Packet::deserialize(&mut content_deser).unwrap( );
     if let mckerel_protocol::packets::serverbound::handshake::Packet::Handshake(packet_data) = packet_data {
         println!("{} {}", packet_data.version, packet_data.address);
     }

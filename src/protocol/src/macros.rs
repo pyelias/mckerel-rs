@@ -2,7 +2,7 @@ pub use mckerel_protocol_macros::{enum_impl, Packet};
 
 macro_rules! packets_impl {
     ($name:ident {
-        $($type:ident = $tag:literal),*
+        $($type:ident),*
     }) => {
         pub enum $name {
             $($type($type)),*
@@ -14,7 +14,7 @@ macro_rules! packets_impl {
             fn deserialize(input: &mut crate::de::ByteReader<'de>) -> crate::de::Result<Self> {
                 let tag = <crate::varnum::VarInt as crate::de::Deserialize>::deserialize(input)?;
                 match tag {
-                    $($tag => {
+                    $(<$type as crate::Packet>::ID => {
                         let val = <$type as crate::de::Deserialize<'de>>::deserialize(input)?;
                         Ok(Self::$type(val))
                     }),*

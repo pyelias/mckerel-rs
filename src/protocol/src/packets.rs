@@ -1,5 +1,10 @@
 use crate::varnum::VarInt;
+use crate::de::Deserialize;
 use crate::macros::{enum_impl, Packet}; // don't use packets_impl because macro scoping is broken
+
+pub trait Packet: for<'de> Deserialize<'de> {
+    const ID: i32;
+}
 
 pub mod serverbound {
     use super::*;
@@ -13,6 +18,7 @@ pub mod serverbound {
 
 
         #[derive(Packet)]
+        #[packet(id=0x00)]
         pub struct Handshake {
             #[packet(with = "VarInt")]
             pub version: i32,
@@ -20,8 +26,10 @@ pub mod serverbound {
             pub port: u16,
             pub next_state: HandshakeNextState
         }
-    
+        
+        // maybe remove this and handle legacy pings as something else
         #[derive(Packet)]
+        #[packet(id=0xfe)] // i guess? it doesn't really have an id like the rest
         pub struct LegacyPing;
 
         pub enum Packet {
@@ -54,14 +62,16 @@ pub mod serverbound {
         use super::*;
 
         #[derive(Packet)]
+        #[packet(id=0x00)]
         pub struct Request;
         
         #[derive(Packet)]
+        #[packet(id=0x01)]
         pub struct Ping(u64);
 
         packets_impl!(Packet {
-            Request = 0x00,
-            Ping = 0x01
+            Request,
+            Ping
         });
     }
 }
@@ -72,16 +82,18 @@ pub mod clientbound {
         use super::*;
 
         #[derive(Packet)]
+        #[packet(id=0x00)]
         pub struct Response {
             pub resp: String
         }
 
         #[derive(Packet)]
+        #[packet(id=0x01)]
         pub struct Pong(u64);
 
         packets_impl!(Packet {
-            Response = 0x00,
-            Pong = 0x01
+            Response,
+            Pong
         });
     }
 }
