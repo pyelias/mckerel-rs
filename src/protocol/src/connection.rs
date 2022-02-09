@@ -81,15 +81,12 @@ impl<'a> PacketReader<'a> {
 
 impl AsyncRead for PacketReader<'_> {
     fn poll_read(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut ReadBuf<'_>) -> Poll<io::Result<()>> {
-        let (decompress, read) = unsafe {
-            let s = self.get_unchecked_mut();
-            (&mut s.decompress, &mut s.read)
-        };
-        match decompress {
+        let self_ = self.get_mut();
+        match &mut self_.decompress {
             Some(decompress) => {
                 let read_into = buf.initialize_unfilled();
 
-                let mut decompressing_future = async_decompress(read, decompress, read_into);
+                let mut decompressing_future = async_decompress(&mut self_.read, decompress, read_into);
                 let decompressing_future_pin = unsafe { Pin::new_unchecked(&mut decompressing_future) };
                 let res = match decompressing_future_pin.poll(cx) {
                     Poll::Pending => return Poll::Pending,
@@ -109,7 +106,7 @@ impl AsyncRead for PacketReader<'_> {
                 })
             },
             None => {
-                return Pin::new(read).poll_read(cx, buf);
+                return Pin::new(&mut self_.read).poll_read(cx, buf);
             }
         }
     }
